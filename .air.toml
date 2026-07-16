@@ -1,0 +1,12 @@
+[build]
+  # Air, kodda bir değişiklik algıladığında bu komutu koşturur:
+  cmd = "go build -o ./tmp/main ./cmd/labs/main.go"
+
+  # Derlenen binary'nin nereye çıktığını ve nasıl çalıştırılacağını belirtir:
+  bin = "./tmp/main"
+
+  # Hangi uzantıların izleneceğini seçer:
+  include_ext = ["go", "toml"]
+
+  # Sonsuz döngü olmaması için tmp ve bin klasörlerini izleme dışı bırakır:
+  exclude_dir = ["assets", "tmp", "vendor", "bin"]
