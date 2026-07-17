@@ -13,7 +13,7 @@ func (h *Handler) CreatePresignedURL(c *gin.Context) {
 	var input r2.UploadInput
 
 	if err := c.ShouldBindJSON(&input); err != nil {
-		api.ValidationError(c, []api.Violation{api.BindingViolation(err)})
+		api.BindingError(c, err)
 		return
 	}
 
@@ -24,7 +24,7 @@ func (h *Handler) CreatePresignedURL(c *gin.Context) {
 
 	output, err := h.r2Client.GeneratePresignedURL(c.Request.Context(), input)
 	if err != nil {
-		api.Error(c, http.StatusInternalServerError, "invalid_file_type", "Invalid file type.")
+		api.ErrorResponse(c, http.StatusBadRequest, "PresignedURLGenerationError", err.Error())
 		return
 	}
 

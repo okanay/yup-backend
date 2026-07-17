@@ -5,18 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/okanay/yup-backend/internal/utils"
-	"golang.org/x/crypto/bcrypt"
-)
-
-const (
-	AccessTokenDuration    = 15 * time.Minute
-	RefreshTokenDuration   = 7 * 24 * time.Hour
-	AccessTokenCookieName  = "access_token"
-	RefreshTokenCookieName = "refresh_token"
 )
 
 func GenerateAccessToken(userID uuid.UUID, role string) (string, error) {
@@ -41,21 +32,6 @@ func GenerateAccessToken(userID uuid.UUID, role string) (string, error) {
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(secret))
-}
-
-func GenerateTokens(userID uuid.UUID, role string) (accessToken string, refreshToken string, err error) {
-	accessToken, err = GenerateAccessToken(userID, role)
-	if err != nil {
-		return "", "", err
-	}
-
-	refreshTokenUuid, err := uuid.NewV7()
-	if err != nil {
-		return "", "", err
-	}
-	refreshToken = refreshTokenUuid.String()
-
-	return accessToken, refreshToken, nil
 }
 
 func ValidateToken(tokenString string) (*Claims, error) {
@@ -93,44 +69,17 @@ func ShouldRefreshToken(claims *Claims) bool {
 	return remainingDuration < (totalDuration / 4)
 }
 
-func SetCookies(c *gin.Context, accessToken, refreshToken string) {
-	domain := utils.GetEnv("COOKIE_DOMAIN", "localhost")
-	secure := utils.GetEnvBool("COOKIE_SECURE", false)
+func GenerateTokens(userID uuid.UUID, role string) (accessToken string, refreshToken string, err error) {
+	accessToken, err = GenerateAccessToken(userID, role)
+	if err != nil {
+		return "", "", err
+	}
 
-	c.SetCookie(
-		AccessTokenCookieName,
-		accessToken,
-		int(AccessTokenDuration.Seconds()),
-		"/",
-		domain,
-		secure,
-		true,
-	)
+	refreshTokenUuid, err := uuid.NewV7()
+	if err != nil {
+		return "", "", err
+	}
 
-	c.SetCookie(
-		RefreshTokenCookieName,
-		refreshToken,
-		int(RefreshTokenDuration.Seconds()),
-		"/",
-		domain,
-		secure,
-		true,
-	)
-}
-
-func ClearCookies(c *gin.Context) {
-	domain := utils.GetEnv("COOKIE_DOMAIN", "localhost")
-
-	c.SetCookie(AccessTokenCookieName, "", -1, "/", domain, false, true)
-	c.SetCookie(RefreshTokenCookieName, "", -1, "/", domain, false, true)
-}
-
-func EncryptPassword(password string) (string, error) {
-	bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	return string(bytes), err
-}
-
-func CheckPassword(password, hash string) bool {
-	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
-	return err == nil
+	refreshToken = refreshTokenUuid.String()
+	return accessToken, refreshToken, nil
 }

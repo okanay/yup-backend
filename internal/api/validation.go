@@ -12,12 +12,6 @@ type Validator struct {
 	validate *validator.Validate
 }
 
-type Violation struct {
-	Field   string `json:"field"`
-	Tag     string `json:"tag"`
-	Message string `json:"message"`
-}
-
 func New() *Validator {
 	v := validator.New()
 
@@ -45,6 +39,7 @@ func (v *Validator) Validate(req any) []Violation {
 
 func (v *Validator) formatErrors(err error) []Violation {
 	var violations []Violation
+
 	for _, e := range err.(validator.ValidationErrors) {
 		violations = append(violations, Violation{
 			Field:   e.Field(),
@@ -52,6 +47,7 @@ func (v *Validator) formatErrors(err error) []Violation {
 			Message: v.customErrorMessage(e),
 		})
 	}
+
 	return violations
 }
 
@@ -128,13 +124,5 @@ func (v *Validator) customErrorMessage(e validator.FieldError) string {
 		return fmt.Sprintf("The %s field must be different from the %s field.", field, param)
 	default:
 		return fmt.Sprintf("The '%s' rule for the %s field is not satisfied.", tag, field)
-	}
-}
-
-func BindingViolation(err error) Violation {
-	return Violation{
-		Field:   "payload",
-		Tag:     "binding_error",
-		Message: fmt.Sprintf("Invalid data format: %v", err),
 	}
 }

@@ -2,7 +2,7 @@ package middleware
 
 import "github.com/gin-gonic/gin"
 
-func (m *Manager) RateLimitMiddleware() gin.HandlerFunc {
+func RateLimitMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Next()
 	}

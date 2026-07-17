@@ -1,42 +1,26 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
 
-type ErrorKey string
-type ErrorMessage string
-
 type AppError struct {
-	Status  int          `json:"-"`
-	Key     ErrorKey     `json:"errorKey"`
-	Message ErrorMessage `json:"message"`
-	Details any          `json:"details,omitempty"`
+	Status     int         `json:"status"`
+	Key        string      `json:"errorKey"`
+	Message    string      `json:"message"`
+	Violations []Violation `json:"violations,omitempty"`
 }
 
-const (
-	// Error Keys
-	ErrValidation   ErrorKey = "Validation"
-	ErrInternal     ErrorKey = "Internal"
-	ErrUnauthorized ErrorKey = "Unauthorized"
-	ErrNotFound     ErrorKey = "Not found"
-	ErrForbidden    ErrorKey = "Forbidden"
-	ErrBadRequest   ErrorKey = "Bad request"
-	ErrConflict     ErrorKey = "Conflict"
+type Violation struct {
+	Field   string `json:"field"`
+	Tag     string `json:"tag"`
+	Message string `json:"message"`
+}
 
-	// Error Messages
-	MsgValidation   ErrorMessage = "Validation failed. Please check your input."
-	MsgInternal     ErrorMessage = "Internal server error. Please try again later."
-	MsgUnauthorized ErrorMessage = "Unauthorized. Authentication required."
-	MsgNotFound     ErrorMessage = "Resource not found. Check your request."
-	MsgForbidden    ErrorMessage = "Forbidden. You don't have permission."
-	MsgBadRequest   ErrorMessage = "Bad request. Invalid parameters."
-	MsgConflict     ErrorMessage = "Conflict. Resource already exists."
-)
-
-func Error(c *gin.Context, status int, key ErrorKey, msg ErrorMessage) {
+func ErrorResponse(c *gin.Context, status int, key string, msg string) {
 	c.AbortWithStatusJSON(status, AppError{
 		Status:  status,
 		Key:     key,
@@ -44,11 +28,26 @@ func Error(c *gin.Context, status int, key ErrorKey, msg ErrorMessage) {
 	})
 }
 
-func ValidationError(c *gin.Context, violations any) {
+func ValidationError(c *gin.Context, violations []Violation) {
+	c.AbortWithStatusJSON(http.StatusBadRequest, AppError{
+		Status:     http.StatusBadRequest,
+		Key:        "ValidationError",
+		Message:    "Validation failed. Please check your input.",
+		Violations: violations,
+	})
+}
+
+func BindingError(c *gin.Context, err error) {
 	c.AbortWithStatusJSON(http.StatusBadRequest, AppError{
 		Status:  http.StatusBadRequest,
-		Key:     ErrValidation,
-		Message: MsgValidation,
-		Details: violations,
+		Key:     "BindingError",
+		Message: "Binding failed. Please check your input.",
+		Violations: []Violation{
+			{
+				Field:   "any_field",
+				Tag:     "unmarshal_error",
+				Message: fmt.Sprintf("Invalid data format: %v", err),
+			},
+		},
 	})
 }

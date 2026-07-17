@@ -2,7 +2,7 @@ package middleware
 
 import "github.com/gin-gonic/gin"
 
-func (m *Manager) TurnstileMiddleware() gin.HandlerFunc {
+func TurnstileMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Next()
 	}

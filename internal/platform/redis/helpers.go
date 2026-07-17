@@ -23,7 +23,6 @@ func (r *RedisClient) DBSize(ctx context.Context) *redis.IntCmd {
 
 // Seçili olan DB'deki (örneğin DB 0) TÜM veriyi siler.
 // DİKKAT: Production ortamında asla çağrılmamalıdır.
-func InvalidateFlushDB() error {
-	rdb := GetClient()
-	return rdb.client.FlushDB(context.Background()).Err()
+func (r *RedisClient) ClearAll() error {
+	return r.client.FlushDB(context.Background()).Err()
 }

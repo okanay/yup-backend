@@ -1,41 +1,28 @@
-## ----------------------------------------------------------------------
-## Proje Değişkenleri
-## ----------------------------------------------------------------------
-
 BINARY_NAME=main
 BINARY_PATH=./bin/$(BINARY_NAME)
 CMD_PATH=./cmd/api/main.go
 
-# .PHONY ile make hedeflerinin dosya ismi olmadığını belirtiyoruz
 .PHONY: run build dev clean help
 
-# Varsayılan hedef (sadece 'make' yazınca çalışır)
-all: help
-
-## ----------------------------------------------------------------------
-## Proje Komutları
-## ----------------------------------------------------------------------
-
-# Uygulamayı hot-reload modu ile çalıştır (Air kullanarak)
+# Air ile hot-reload modunda başlatır
 dev:
-	@echo "🔄 Geliştirme modu (Hot-Reload) başlatılıyor..."
+	@echo "Geliştirme modu (Hot-Reload) başlatılıyor..."
 	air
 
-# Uygulamayı derle (build) ve bin/ klasörüne çıktı al
+# Uygulamayı derler
 build:
-	@echo "🔨 Uygulama derleniyor..."
+	@echo "Uygulama derleniyor..."
 	@mkdir -p bin
-	go build -o bin/$(BINARY_NAME) $(CMD_PATH)
-	@echo "✅ Derleme tamamlandı: bin/$(BINARY_NAME)"
+	go build -o $(BINARY_PATH) $(CMD_PATH)
+	@echo "Derleme tamamlandı: $(BINARY_PATH)"
 
-# Uygulamayı normal şekilde çalıştır (go run)
-run:
-	@echo "🚀 Uygulama başlatılıyor..."
+# Önce derler, sonra çalıştırır
+run: build
+	@echo "Uygulama başlatılıyor..."
 	$(BINARY_PATH)
 
-# Derlenmiş dosyaları ve geçici dosyaları temizle
 clean:
-	@echo "🧹 Temizlik yapılıyor..."
+	@echo "Temizlik yapılıyor..."
 	@rm -f bin/$(BINARY_NAME)
 	@rm -rf tmp
-	@echo "✅ Temizlendi."
+	@echo "Temizlendi."
