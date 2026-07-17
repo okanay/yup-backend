@@ -1,8 +1,19 @@
 package auth
 
-type Handler struct {
+import "github.com/gin-gonic/gin"
+
+type Handler interface {
+	CreateUser(c *gin.Context)
 }
 
-func NewHandler() *Handler {
-	return &Handler{}
+type authHandler struct {
+	service Service
+}
+
+func NewHandler(service Service) Handler {
+	return &authHandler{service: service}
+}
+
+func (h *authHandler) CreateUser(c *gin.Context) {
+
 }

@@ -10,7 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
-type R2 struct {
+type Client struct {
 	client        *s3.Client
 	presignClient *s3.PresignClient
 	bucketName    string
@@ -18,7 +18,7 @@ type R2 struct {
 	publicURLBase string
 }
 
-func Initialize(ctx context.Context, accountID, accessKeyID, accessKeySecret, bucketName, folderName, publicURLBase, endpoint string) (*R2, error) {
+func Initialize(ctx context.Context, accountID, accessKeyID, accessKeySecret, bucketName, folderName, publicURLBase, endpoint string) (*Client, error) {
 	// SDK konfigürasyonu
 	cfg, err := config.LoadDefaultConfig(ctx,
 		config.WithRegion("auto"),
@@ -42,7 +42,7 @@ func Initialize(ctx context.Context, accountID, accessKeyID, accessKeySecret, bu
 	// Presign client'ı bir kere oluşturup reuse ediyoruz
 	presignClient := s3.NewPresignClient(s3Client)
 
-	return &R2{
+	return &Client{
 		client:        s3Client,
 		presignClient: presignClient,
 		bucketName:    bucketName,

@@ -8,7 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
-func (r *R2) TestConnection(ctx context.Context) error {
+func (r *Client) TestConnection(ctx context.Context) error {
 	listResult, err := r.client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
 		Bucket:  &r.bucketName,
 		Prefix:  &r.folderName,

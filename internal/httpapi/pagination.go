@@ -1,4 +1,4 @@
-package api
+package httpapi
 
 type Pagination struct {
 	Total int `json:"total"`

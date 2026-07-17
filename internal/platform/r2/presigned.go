@@ -12,7 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
-func (r *R2) GeneratePresignedURL(ctx context.Context, input UploadInput) (*UploadOutput, error) {
+func (r *Client) GeneratePresignedURL(ctx context.Context, input UploadInput) (*UploadOutput, error) {
 	ext := filepath.Ext(input.Filename)                // .docx
 	nameRaw := strings.TrimSuffix(input.Filename, ext) // Okan Ay Vize
 	safeName := SanitizeFilename(nameRaw)              // okan-ay-vize

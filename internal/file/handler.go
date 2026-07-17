@@ -1,17 +1,22 @@
 package file
 
 import (
-	"github.com/okanay/yup-backend/internal/api"
+	"github.com/gin-gonic/gin"
+	api "github.com/okanay/yup-backend/internal/httpapi"
 	"github.com/okanay/yup-backend/internal/platform/r2"
 )
 
-type Handler struct {
-	validator *api.Validator
-	r2Client  *r2.R2
+type Handler interface {
+	CreatePresignedURL(c *gin.Context)
 }
 
-func NewHandler(v *api.Validator, r2 *r2.R2) *Handler {
-	return &Handler{
+type fileHandler struct {
+	validator *api.Validator
+	r2Client  *r2.Client
+}
+
+func NewHandler(v *api.Validator, r2 *r2.Client) Handler {
+	return &fileHandler{
 		validator: v,
 		r2Client:  r2,
 	}

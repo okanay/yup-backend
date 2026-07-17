@@ -9,11 +9,11 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-type RedisClient struct {
+type Client struct {
 	client redis.UniversalClient
 }
 
-func Initialize(addr []string, username, password string, dbStr string) (*RedisClient, error) {
+func Initialize(addr []string, username, password string, dbStr string) (*Client, error) {
 	db, err := strconv.Atoi(dbStr)
 	if err != nil {
 		err = fmt.Errorf("[REDIS::INFO] :: Redis db parse error: %w", err)
@@ -38,7 +38,7 @@ func Initialize(addr []string, username, password string, dbStr string) (*RedisC
 		return nil, err
 	}
 
-	instance := &RedisClient{client: rdb}
+	instance := &Client{client: rdb}
 
 	return instance, nil
 }

@@ -8,7 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
-func (r *R2) DeleteObject(ctx context.Context, objectKey string) error {
+func (r *Client) DeleteObject(ctx context.Context, objectKey string) error {
 	_, err := r.client.DeleteObject(ctx, &s3.DeleteObjectInput{
 		Bucket: aws.String(r.bucketName),
 		Key:    aws.String(objectKey),

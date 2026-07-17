@@ -1,6 +1,8 @@
-package api
+package httpapi
 
 import (
+	"time"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
@@ -52,6 +54,6 @@ func CorsConfig() gin.HandlerFunc {
 			"X-Request-Id",
 		},
 		AllowCredentials: true,
-		MaxAge:           60 * 24 * 30,
+		MaxAge:           30 * 24 * time.Hour,
 	})
 }

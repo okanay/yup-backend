@@ -8,9 +8,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 
-	"github.com/okanay/yup-backend/internal/api"
-	"github.com/okanay/yup-backend/internal/api/middleware"
 	"github.com/okanay/yup-backend/internal/auth"
+	"github.com/okanay/yup-backend/internal/httpapi"
+	"github.com/okanay/yup-backend/internal/httpapi/middleware"
 	"github.com/okanay/yup-backend/internal/platform/postgres"
 	"github.com/okanay/yup-backend/internal/platform/redis"
 )
@@ -68,13 +68,14 @@ func main() {
 	// -------------------------------------------------------------------------
 	// 4. GIN ROUTER SETUP - HTTP Router konfigürasyonu
 	// -------------------------------------------------------------------------
-	authService := auth.NewService()
+	authRepo := auth.NewRepository(db)
+	authService := auth.NewService(authRepo)
 
 	router := gin.Default()
 	router.SetTrustedProxies([]string{"127.0.0.1", "::1"})
 
-	router.Use(api.CorsConfig())
-	router.Use(api.SecureConfig)
+	router.Use(httpapi.CorsConfig())
+	router.Use(httpapi.SecureConfig)
 
 	router.Use(middleware.AuthMiddleware(authService))
 	router.Use(middleware.LoggerMiddleware())
@@ -87,7 +88,6 @@ func main() {
 	router.GET("/", func(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"message": "Go Template API is running!",
-			"env":     os.Getenv("MAIN_CONN_STRING"),
 		})
 	})
 

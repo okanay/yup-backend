@@ -5,11 +5,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/okanay/yup-backend/internal/api"
+	api "github.com/okanay/yup-backend/internal/httpapi"
 	"github.com/okanay/yup-backend/internal/platform/r2"
 )
 
-func (h *Handler) CreatePresignedURL(c *gin.Context) {
+func (h *fileHandler) CreatePresignedURL(c *gin.Context) {
 	var input r2.UploadInput
 
 	if err := c.ShouldBindJSON(&input); err != nil {

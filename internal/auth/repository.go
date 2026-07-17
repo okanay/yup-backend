@@ -5,14 +5,20 @@ import (
 	"database/sql"
 )
 
-type Repository struct {
+type Repository interface {
+	CreateUser(ctx context.Context, email, password string) (*User, error)
+}
+
+type authRepository struct {
 	db *sql.DB
 }
 
-type IRepository interface {
-	CreateNewUser(ctx context.Context, email, password string) error
+func NewRepository(db *sql.DB) Repository {
+	return &authRepository{db: db}
 }
 
-func NewRepository(db *sql.DB) *Repository {
-	return &Repository{db: db}
+func (r *authRepository) CreateUser(ctx context.Context, email, password string) (*User, error) {
+	user := User{Email: email, Password: password}
+
+	return &user, nil
 }
