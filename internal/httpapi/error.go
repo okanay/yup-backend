@@ -7,7 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type AppError struct {
+type ErrorBody struct {
 	Status     int         `json:"status"`
 	Key        string      `json:"errorKey"`
 	Message    string      `json:"message"`
@@ -21,15 +21,21 @@ type Violation struct {
 }
 
 func ErrorResponse(c *gin.Context, status int, key string, msg string) {
-	c.AbortWithStatusJSON(status, AppError{
+	keyFallback := key
+
+	if keyFallback == "" {
+		keyFallback = http.StatusText(status)
+	}
+
+	c.AbortWithStatusJSON(status, ErrorBody{
 		Status:  status,
-		Key:     key,
+		Key:     keyFallback,
 		Message: msg,
 	})
 }
 
 func ValidationError(c *gin.Context, violations []Violation) {
-	c.AbortWithStatusJSON(http.StatusBadRequest, AppError{
+	c.AbortWithStatusJSON(http.StatusBadRequest, ErrorBody{
 		Status:     http.StatusBadRequest,
 		Key:        "ValidationError",
 		Message:    "Validation failed. Please check your input.",
@@ -38,16 +44,9 @@ func ValidationError(c *gin.Context, violations []Violation) {
 }
 
 func BindingError(c *gin.Context, err error) {
-	c.AbortWithStatusJSON(http.StatusBadRequest, AppError{
+	c.AbortWithStatusJSON(http.StatusBadRequest, ErrorBody{
 		Status:  http.StatusBadRequest,
 		Key:     "BindingError",
-		Message: "Binding failed. Please check your input.",
-		Violations: []Violation{
-			{
-				Field:   "any_field",
-				Tag:     "unmarshal_error",
-				Message: fmt.Sprintf("Invalid data format: %v", err),
-			},
-		},
+		Message: fmt.Sprintf("Invalid data format: %v", err),
 	})
 }

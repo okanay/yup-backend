@@ -23,13 +23,18 @@ func main() {
 	// -------------------------------------------------------------------------
 	router := gin.Default()
 
-	router.Use(httpapi.CorsConfig())
+	router.TrustedPlatform = gin.PlatformCloudflare
+	if err := router.SetTrustedProxies(nil); err != nil {
+		log.Fatal(err)
+	}
+
 	router.Use(httpapi.SecureConfig)
-	router.SetTrustedProxies([]string{"127.0.0.1", "::1"})
+	router.Use(httpapi.CorsConfig())
 
 	router.GET("/", func(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"message": "Go Template API is running!",
+			"ip":      c.ClientIP(),
 		})
 	})
 

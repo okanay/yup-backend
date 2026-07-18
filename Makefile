@@ -1,13 +1,23 @@
 BINARY_NAME=main
 BINARY_PATH=./bin/$(BINARY_NAME)
-CMD_PATH=./cmd/api/main.go
+CMD_PATH=./cmd/api
 
-.PHONY: run build dev clean help
+.PHONY: dev dev-labs dev-api build run clean
 
 # Air ile hot-reload modunda başlatır
-dev:
-	@echo "Geliştirme modu (Hot-Reload) başlatılıyor..."
-	air
+dev: dev-labs
+
+dev-labs:
+	@echo "Labs modu (Hot-Reload) başlatılıyor..."
+	air \
+		--build.cmd "go build -o ./tmp/labs ./cmd/labs" \
+		--build.entrypoint "./tmp/labs"
+
+dev-api:
+	@echo "API modu (Hot-Reload) başlatılıyor..."
+	air \
+		--build.cmd "go build -o ./tmp/api ./cmd/api" \
+		--build.entrypoint "./tmp/api"
 
 # Uygulamayı derler
 build:

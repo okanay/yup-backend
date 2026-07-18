@@ -5,7 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	api "github.com/okanay/yup-backend/internal/httpapi"
+	"github.com/okanay/yup-backend/internal/httpapi"
 	"github.com/okanay/yup-backend/internal/platform/r2"
 )
 
@@ -13,18 +13,18 @@ func (h *fileHandler) CreatePresignedURL(c *gin.Context) {
 	var input r2.UploadInput
 
 	if err := c.ShouldBindJSON(&input); err != nil {
-		api.BindingError(c, err)
+		httpapi.BindingError(c, err)
 		return
 	}
 
 	if violations := h.validator.Validate(&input); violations != nil {
-		api.ValidationError(c, violations)
+		httpapi.ValidationError(c, violations)
 		return
 	}
 
 	output, err := h.r2Client.GeneratePresignedURL(c.Request.Context(), input)
 	if err != nil {
-		api.ErrorResponse(c, http.StatusBadRequest, "PresignedURLGenerationError", err.Error())
+		httpapi.ErrorResponse(c, http.StatusBadRequest, "PresignedURLGenerationError", err.Error())
 		return
 	}
 

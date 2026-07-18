@@ -54,6 +54,6 @@ func CorsConfig() gin.HandlerFunc {
 			"X-Request-Id",
 		},
 		AllowCredentials: true,
-		MaxAge:           30 * 24 * time.Hour,
+		MaxAge:           2 * time.Hour,
 	})
 }
