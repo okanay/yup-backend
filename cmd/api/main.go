@@ -1,16 +1,13 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 
-	"github.com/okanay/yup-backend/internal/auth"
-	"github.com/okanay/yup-backend/internal/httpapi"
-	"github.com/okanay/yup-backend/internal/httpapi/middleware"
+	"github.com/okanay/yup-backend/internal/domain/auth"
 	"github.com/okanay/yup-backend/internal/platform/postgres"
 	"github.com/okanay/yup-backend/internal/platform/redis"
 )
@@ -69,40 +66,6 @@ func main() {
 	// 4. GIN ROUTER SETUP - HTTP Router konfigürasyonu
 	// -------------------------------------------------------------------------
 	authRepo := auth.NewRepository(db)
-	authService := auth.NewService(authRepo)
+	_ = auth.NewService(authRepo)
 
-	router := gin.Default()
-	router.SetTrustedProxies([]string{"127.0.0.1", "::1"})
-
-	router.Use(httpapi.CorsConfig())
-	router.Use(httpapi.SecureConfig)
-
-	router.Use(middleware.AuthMiddleware(authService))
-	router.Use(middleware.LoggerMiddleware())
-	router.Use(middleware.RateLimitMiddleware())
-	router.Use(middleware.RequirePermission())
-
-	// -------------------------------------------------------------------------
-	// 5. ROUTES - API endpoint tanımlamaları
-	// -------------------------------------------------------------------------
-	router.GET("/", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"message": "Go Template API is running!",
-		})
-	})
-
-	// -------------------------------------------------------------------------
-	// 6. SERVER START - HTTP sunucusunu başlat
-	// -------------------------------------------------------------------------
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-		log.Println("[MAIN::INFO] :: PORT environment variable not set, using default 8080.")
-	}
-
-	serverAddr := fmt.Sprintf(":%s", port)
-
-	if err := router.Run(serverAddr); err != nil {
-		log.Fatalf("[MAIN::ERROR] :: Failed to start server: %v", err)
-	}
 }

@@ -1,35 +1,43 @@
 package main
 
 import (
-	"fmt"
-	"log"
+	"log/slog"
 	"os"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
-	"github.com/okanay/yup-backend/internal/httpapi"
+	"github.com/okanay/yup-backend/internal/core"
+	"github.com/okanay/yup-backend/internal/middleware"
 )
 
 func main() {
 	// -------------------------------------------------------------------------
-	// 1. ENVIRONMENT VARIABLES - .env dosyasını yükle
+	// 1. LOGGER SETUP
 	// -------------------------------------------------------------------------
-	if err := godotenv.Load(); err != nil {
-		log.Println("[MAIN::ENV] :: .env file not found, system environment variables will be used.")
+	slogLogger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	slog.SetDefault(slogLogger)
+
+	// -------------------------------------------------------------------------
+	// 2. ENVIRONMENT VARIABLES
+	// -------------------------------------------------------------------------
+	if err := godotenv.Load(".env"); err != nil {
+		slog.Warn("godotenv file not found, system environment variables will be used.")
 	}
 
 	// -------------------------------------------------------------------------
-	// 2. GIN ROUTER SETUP - HTTP Router konfigürasyonu
+	// 3. GIN ROUTER SETUP
 	// -------------------------------------------------------------------------
-	router := gin.Default()
+	router := gin.New()
 
 	router.TrustedPlatform = gin.PlatformCloudflare
-	if err := router.SetTrustedProxies(nil); err != nil {
-		log.Fatal(err)
-	}
+	router.SetTrustedProxies([]string{"127.0.0.1", "::1"})
 
-	router.Use(httpapi.SecureConfig)
-	router.Use(httpapi.CorsConfig())
+	router.Use(
+		gin.Recovery(),
+		middleware.CorsMiddleware(),
+		middleware.SecureMiddleware(),
+		middleware.LoggerMiddleware(),
+	)
 
 	router.GET("/", func(c *gin.Context) {
 		c.JSON(200, gin.H{
@@ -39,17 +47,13 @@ func main() {
 	})
 
 	// -------------------------------------------------------------------------
-	// 3. SERVER START - HTTP sunucusunu başlat
+	// 4. SERVER START
 	// -------------------------------------------------------------------------
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-		log.Println("[MAIN::INFO] :: PORT environment variable not set, using default 8080.")
-	}
+	port := core.GetEnvString("PORT", "8080")
+	slog.Info("server starting", "port", port)
 
-	serverAddr := fmt.Sprintf(":%s", port)
-
-	if err := router.Run(serverAddr); err != nil {
-		log.Fatalf("[MAIN::ERROR] :: Failed to start server: %v", err)
+	if err := router.Run(":" + port); err != nil {
+		slog.Error("failed to start server", "error", err)
+		os.Exit(1)
 	}
 }

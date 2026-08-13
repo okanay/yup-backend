@@ -1,4 +1,4 @@
-package httpapi
+package core
 
 import (
 	"fmt"
@@ -29,7 +29,7 @@ func New() *Validator {
 	return &Validator{validate: v}
 }
 
-func (v *Validator) Validate(req any) []Violation {
+func (v *Validator) Validate(req any) []Validation {
 	if err := v.validate.Struct(req); err != nil {
 		return v.formatErrors(err)
 	}
@@ -37,18 +37,18 @@ func (v *Validator) Validate(req any) []Violation {
 	return nil
 }
 
-func (v *Validator) formatErrors(err error) []Violation {
-	var violations []Violation
+func (v *Validator) formatErrors(err error) []Validation {
+	var ValidationErrors []Validation
 
 	for _, e := range err.(validator.ValidationErrors) {
-		violations = append(violations, Violation{
+		ValidationErrors = append(ValidationErrors, Validation{
 			Field:   e.Field(),
 			Tag:     e.Tag(),
 			Message: v.customErrorMessage(e),
 		})
 	}
 
-	return violations
+	return ValidationErrors
 }
 
 func (v *Validator) customErrorMessage(e validator.FieldError) string {

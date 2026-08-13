@@ -1,4 +1,4 @@
-package httpapi
+package middleware
 
 import (
 	"time"
@@ -7,7 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func CorsConfig() gin.HandlerFunc {
+func CorsMiddleware() gin.HandlerFunc {
 	var origins = []string{
 		// Production domains
 		"https://mydomain.com",
