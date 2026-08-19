@@ -3,6 +3,7 @@
 /bin/
 /build/
 /dist/
+/backups/
 
 # Kök dizinde oluşabilecek binary isimleri (Makefile ayarlarına göre)
 /main
@@ -24,6 +25,7 @@
 .env.test
 .env.production
 # .env-example dosyasını hariç tut (o git'e gitmeli)
+!.env.example
 !.env-example
 
 # --- 3. IDE ve Editör Dosyaları ---

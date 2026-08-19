@@ -1,0 +1,11 @@
+.git
+.gitignore
+.DS_Store
+*.md
+bin/
+tmp/
+backups/
+.env
+docker-compose*.yml
+Dockerfile
+Makefile
