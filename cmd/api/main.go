@@ -2,10 +2,10 @@ package main
 
 import (
 	"log/slog"
+	"net/http"
 	"os"
 
 	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
 
 	"github.com/okanay/yup-backend/internal/core"
 	"github.com/okanay/yup-backend/internal/domain/auth"
@@ -14,33 +14,26 @@ import (
 )
 
 func main() {
-	// -------------------------------------------------------------------------
-	// 1. LOGGER SETUP
-	// -------------------------------------------------------------------------
-	slogLogger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	slog.SetDefault(slogLogger)
+	// 0. Logger Setup
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
 
-	// -------------------------------------------------------------------------
-	// 2. ENVIRONMENT VARIABLES
-	// -------------------------------------------------------------------------
-	if err := godotenv.Load(".env"); err != nil {
-		slog.Warn("godotenv file not found, system environment variables will be used.")
-	}
+	// 1. Configuration & Environment
+	config := core.LoadConfig()
 
-	// -------------------------------------------------------------------------
-	// 3. DATABASE CONNECTION - PostgreSQL bağlantısı
-	// -------------------------------------------------------------------------
-	db, err := postgres.Initialize()
+	// 2. Healthcheck Probe
+	core.HealthCheckProbe(config.Port, config.HealthPath)
+
+	// 3. Database Connection
+	db, err := postgres.Initialize(config.Postgres)
 	if err != nil {
 		slog.Error("Failed to connect to database", "error", err)
+		os.Exit(1)
 	}
 
 	defer db.Close()
 	slog.Info("Successfully connected to the database.")
 
-	// -------------------------------------------------------------------------
-	// 4. GIN ROUTER SETUP - HTTP Router konfigürasyonu
-	// -------------------------------------------------------------------------
+	// 4. Gin Router Setup
 	authRepo := auth.NewRepository(db)
 	_ = auth.NewService(authRepo)
 
@@ -55,20 +48,21 @@ func main() {
 		middleware.LoggerMiddleware(),
 	)
 
-	router.GET("/", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"message": "Go Template API is running!",
+	router.GET(config.HealthPath, func(c *gin.Context) {
+		if err := db.Ping(); err != nil {
+			core.ErrorResponse(c, err, http.StatusServiceUnavailable, "health_error", "down")
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message": "API is running!",
 			"ip":      c.ClientIP(),
 		})
 	})
 
-	// -------------------------------------------------------------------------
-	// 5. SERVER START
-	// -------------------------------------------------------------------------
-	port := core.GetEnvString("PORT", "8080")
-	slog.Info("server starting", "port", port)
-
-	if err := router.Run(":" + port); err != nil {
+	// 5. Server Start
+	slog.Info("server starting", "port", config.Port)
+	if err := router.Run(":" + config.Port); err != nil {
 		slog.Error("failed to start server", "error", err)
 		os.Exit(1)
 	}

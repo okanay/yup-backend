@@ -6,6 +6,7 @@ bin/
 tmp/
 backups/
 .env
+.env.*
 docker-compose*.yml
 Dockerfile
 Makefile
