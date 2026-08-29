@@ -44,7 +44,7 @@ services:
   api:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: ./config/api.Dockerfile
     image: api:yup
     restart: unless-stopped
     env_file:

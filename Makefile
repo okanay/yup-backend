@@ -155,10 +155,8 @@ ps:
 update:
 	@echo "1. En güncel kodlar çekiliyor..."
 	git pull origin main
-	@echo "2. Veritabanı migration'ları uygulanıyor..."
-	@go run $(MIGRATE_CMD_PATH) up
-	@echo "3. Yeni API derlenip arka planda ayağa kaldırılıyor..."
+	@echo "2. Yeni API derlenip arka planda ayağa kaldırılıyor..."
 	@docker compose up -d --build $(DOCKER_SERVICE_API)
-	@echo "4. Eski imaj kalıntıları temizleniyor..."
+	@echo "3. Eski imaj kalıntıları temizleniyor..."
 	@docker image prune -f
 	@echo "Tüm güncelleme başarıyla tamamlandı!"
