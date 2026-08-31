@@ -64,6 +64,8 @@ help:
 	@echo "  make db-backup    - Veritabanı yedeğini $(DIR_BACKUPS)/ altına kaydeder"
 	@echo "  make migrate-up   - Veritabanı migration'larını çalıştırır"
 	@echo "  make migrate-down - Son migration işlemini geri alır"
+	@echo "  make migrate-prod - Canlı veritabanına migration uygular"
+	@echo "  make db-tunnel    - Canlı DB SSH tünelini başlatır"
 	@echo "  make up           - Tüm Docker stack'ini (DB + API) ayağa kaldırır"
 	@echo "  make down         - Tüm Docker servislerini durdurur"
 	@echo "  make restart      - Docker servislerini yeniden başlatır"
@@ -129,6 +131,16 @@ migrate-up:
 migrate-down:
 	@echo "Migration'lar geri alınıyor (DOWN)..."
 	go run $(MIGRATE_CMD_PATH) down
+
+# Tünel açıkken canlı veritabanına migration atar
+migrate-prod:
+	@echo "Canlı veritabanına migration uygulanıyor..."
+	DB_HOST=127.0.0.1 DB_PORT=5433 DB_USER=$(PROD_DB_USER) DB_PASSWORD=$(PROD_DB_PASSWORD) DB_NAME=$(PROD_DB_NAME) go run $(MIGRATE_CMD_PATH) up
+
+# Canlı DB SSH tünelini arka planda başlatır
+db-tunnel:
+	@echo "VPS PostgreSQL tüneli 5433 portunda açılıyor..."
+	@ssh -N yup-db-tunnel
 
 # =============================================================================
 # 8. DOCKER STACK MANAGEMENT
