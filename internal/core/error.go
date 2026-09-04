@@ -71,3 +71,7 @@ func BindingError(c *gin.Context, err error) {
 		Validations: []Validation{},
 	})
 }
+
+func ServerError(c *gin.Context, err error) {
+	ErrorResponse(c, err, http.StatusInternalServerError, "internalServerError", "Something went wrong.")
+}

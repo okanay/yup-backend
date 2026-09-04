@@ -10,6 +10,7 @@
 /api
 /migrate
 /worker
+/certs
 
 # Windows binary uzantıları
 *.exe

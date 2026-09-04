@@ -38,8 +38,7 @@ func main() {
 	_ = auth.NewService(authRepo)
 
 	router := gin.New()
-	router.TrustedPlatform = gin.PlatformCloudflare
-	router.SetTrustedProxies([]string{"127.0.0.1", "::1"})
+	router.SetTrustedProxies(nil)
 
 	router.Use(
 		gin.Recovery(),
@@ -56,7 +55,7 @@ func main() {
 
 		c.JSON(http.StatusOK, gin.H{
 			"message": "API is running!",
-			"ip":      c.ClientIP(),
+			"ip":      core.GetClientIP(c),
 		})
 	})
 

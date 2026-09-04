@@ -30,7 +30,7 @@ func logger(c *gin.Context, status int, duration time.Duration) {
 	attrs = append(attrs,
 		slog.Int("status", status),
 		slog.String("latency", duration.String()),
-		slog.String("client_ip", c.ClientIP()),
+		slog.String("client_ip", core.GetClientIP(c)),
 	)
 
 	val, exists := core.GetUserID(c)
@@ -50,7 +50,8 @@ func logger(c *gin.Context, status int, duration time.Duration) {
 	}
 
 	var level slog.Level
-	var msg string = fmt.Sprintf("%s %s", c.Request.Method, c.FullPath())
+	var path string = c.FullPath()
+	var msg string = fmt.Sprintf("%s %s", c.Request.Method, path)
 
 	switch {
 	case status >= 500:
