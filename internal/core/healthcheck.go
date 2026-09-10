@@ -6,7 +6,7 @@ import (
 	"os"
 )
 
-func HealthCheckProbe(port string, healthPath string) {
+func RunHealthCheckProbe(port string, healthPath string) {
 	if len(os.Args) <= 1 || os.Args[1] != "health" {
 		return
 	}
