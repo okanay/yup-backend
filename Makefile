@@ -1,91 +1,101 @@
 # =============================================================================
-# 1. ORTAM DEĞİŞKENLERİ VE DOCKER COMPOSE KOMUTLARI
+# 1. ORTAM DEĞİŞKENLERİ
 # =============================================================================
--include .env
-export
+ifneq (,$(wildcard .env))
+    include .env
+    export
+endif
 
-# Compose Dosya Yolları
-INFRA_COMPOSE       := docker compose -f config/infra.docker-compose.yml
-APP_COMPOSE         := docker compose -f docker-compose.yml
-
-# SSH Yapılandırması (~/.ssh/config ile eşleşir)
-SSH_HOST_PROD       := vps-root
-SSH_TUNNEL_HOST     := yup-tunnel
-REMOTE_PROJECT_DIR  := /home/ubuntu/yup-backend
-
-# Proje Yolları
+# Proje Yolları ve Araç Tanımları
 DIR_CMD             := ./cmd/api
 DIR_BIN             := ./bin/api
 DIR_TMP             := ./tmp/api
 DIR_BACKUPS         := ./backups
 MIGRATIONS_PATH     := $(shell pwd)/migrations
-
-# Zaman Damgası
 TIMESTAMP           := $(shell date +'%Y-%m-%d-%H-%M-%S')
+
+# Varsayılan Değerler
+SSH_HOST_PROD       ?= vps-root
+SSH_TUNNEL_HOST     ?= vps-tunnel
+REMOTE_PROJECT_DIR  ?= /home/ubuntu/yup-backend
+
+DB_USER             ?= postgres
+DB_PASSWORD         ?= postgres
+DB_NAME             ?= yup_db
+DB_PORT             ?= 5432
+DB_SSLMODE          ?= disable
+
+# Prod değişkenleri .env içinde tanımlı değilse doğrudan yerel değerleri miras alır
+PROD_TUNNEL_PORT    ?= 5433
+PROD_DB_USER        ?= $(DB_USER)
+PROD_DB_PASSWORD    ?= $(DB_PASSWORD)
+PROD_DB_NAME        ?= $(DB_NAME)
 
 # Migration Aracı
 MIGRATE_IMAGE       := migrate/migrate:v4.18.2
 MIGRATE_NAME        := $(if $(n),$(n),$(name))
+SSH_KEY_NAME        := $(if $(n),$(n),$(name))
+SSH_KEY_PATH        := $(HOME)/.ssh/$(SSH_KEY_NAME)
 
-# Veritabanı URL Tanımları
-LOCAL_DB_PORT       ?= 5432
-LOCAL_DB_URL        := postgres://$(DB_USER):$(DB_PASSWORD)@host.docker.internal:$(LOCAL_DB_PORT)/$(DB_NAME)?sslmode=disable
-
-PROD_TUNNEL_PORT    ?= 5433
-PROD_DB_URL         := postgres://$(PROD_DB_USER):$(PROD_DB_PASSWORD)@host.docker.internal:$(PROD_TUNNEL_PORT)/$(PROD_DB_NAME)?sslmode=disable
-
+# Migration URL Tanımları
+LOCAL_MIGRATE_URL   := postgres://$(DB_USER):$(DB_PASSWORD)@host.docker.internal:$(DB_PORT)/$(DB_NAME)?sslmode=$(DB_SSLMODE)
+PROD_MIGRATE_URL    := postgres://$(PROD_DB_USER):$(PROD_DB_PASSWORD)@host.docker.internal:$(PROD_TUNNEL_PORT)/$(PROD_DB_NAME)?sslmode=disable
 # =============================================================================
 # 2. PHONY HEDEFLERİ
 # =============================================================================
-.PHONY: help dev build run clean test \
-        infra-up infra-down db-up db-down nginx-reload \
+.PHONY: help dev build run test clean \
+        db-up db-down db-shell db-backup \
         up down restart logs ps \
-        db-shell db-backup db-backup-prod \
         migrate-create migrate-up migrate-down migrate-force migrate-version \
-        db-tunnel migrate-up-prod migrate-down-prod migrate-force-prod migrate-version-prod \
-        log-prod shell-prod db-shell-prod update nginx-sync
+        db-tunnel migrate-up-prod migrate-down-prod db-backup-prod \
+        setup-vps deploy-prod log-prod shell-prod nginx-sync gen-ssh
 
 # =============================================================================
 # 3. YARDIM MENÜSÜ
 # =============================================================================
 help:
-	@echo "--- YEREL GELİŞTİRME ---"
+	@echo "================== YEREL GELİŞTİRME =================="
 	@echo "  make dev                 : Air ile API'yi hot-reload modunda başlatır"
 	@echo "  make build               : Yerel binary derler"
-	@echo "  make run                 : Yerel binary derleyip çalıştırır"
-	@echo "  make test                : Race detector ile testleri çalıştırır"
-	@echo "  make clean               : Derleme artıklarını siler"
+	@echo "  make run                 : Yerel binary derler ve çalıştırır"
+	@echo "  make test                : Race condition kontrolüyle testleri koşar"
+	@echo "  make clean               : Derleme artıklarını ve geçici dosyaları siler"
 	@echo ""
-	@echo "--- ALTYAPI YÖNETİMİ (INFRA: POSTGRES & NGINX) ---"
-	@echo "  make infra-up            : Ortak Postgres ve Nginx altyapısını kaldırır"
-	@echo "  make infra-down          : Altyapı servislerini durdurur"
-	@echo "  make db-up               : Yalnızca PostgreSQL konteynerini başlatır (Air için)"
+	@echo "================ VERİTABANI (DOCKER) ================="
+	@echo "  make db-up               : PostgreSQL konteynerini başlatır (Profile: db)"
 	@echo "  make db-down             : PostgreSQL konteynerini durdurur"
-	@echo "  make nginx-reload        : Nginx'i kesintisiz yeniden yükler"
+	@echo "  make db-shell            : Konteyner içindeki psql CLI konsoluna bağlanır"
+	@echo "  make db-backup           : Yerel veritabanının yedeğini SQL olarak alır"
 	@echo ""
-	@echo "--- UYGULAMA SERVİSİ (YUP API) ---"
+	@echo "================== UYGULAMA (API) ===================="
 	@echo "  make up                  : API konteynerini çeker ve ayağa kaldırır"
 	@echo "  make down                : API konteynerini durdurur"
 	@echo "  make restart             : API konteynerini yeniden başlatır"
-	@echo "  make logs                : API loglarını canlı izler"
-	@echo "  make ps                  : Konteynerlerin durumunu listeler"
+	@echo "  make logs                : API konteyner loglarını canlı izler"
+	@echo "  make ps                  : Çalışan servislerin durumunu listeler"
 	@echo ""
-	@echo "--- VERİTABANI & MİGRASYON ---"
-	@echo "  make db-shell            : Yerel psql konsoluna bağlanır"
-	@echo "  make migrate-create n=x  : Yeni migration dosyası açar"
-	@echo "  make migrate-up          : Yerel migrationları uygular"
-	@echo "  make migrate-down        : Yerel son migrationı geri alır"
-	@echo "  make migrate-up-prod     : SSH tüneliyle canlı DB'ye migrate basar"
+	@echo "================ VERİTABANI MİGRASYONU ================"
+	@echo "  make migrate-create n=x  : Yeni migration SQL dosyaları oluşturur"
+	@echo "  make migrate-up          : Yerel veritabanına uygulanmamış şemaları basar"
+	@echo "  make migrate-down        : Yerel veritabanında son adımı geri alır"
+	@echo "  make migrate-version     : Mevcut migration versiyonunu gösterir"
 	@echo ""
-	@echo "--- CI/CD & VPS DAĞITIMI ---"
-	@echo "  make update              : VPS üzerinde API'yi sıfır kesintiyle günceller"
-	@echo "  make nginx-sync          : Nginx yapılandırmasını günceller"
+	@echo "================ CANLI SUNUCU (VPS) =================="
+	@echo "  make setup-vps           : Yeni kiralanan VPS'i sıfırdan kurar (Docker, Nginx, UFW)"
+	@echo "  make db-tunnel           : Canlı veritabanına SSH tüneli açar"
+	@echo "  make migrate-up-prod     : SSH tüneli üzerinden canlı veritabanına şema basar"
+	@echo "  make db-backup-prod      : Canlı veritabanı yedeğini lokale indirir"
+	@echo "  make deploy-prod         : VPS üzerinde kod ve imaj güncellemesi yapar"
+	@echo "  make log-prod            : Canlı sunucudaki API loglarını izler"
+	@echo "  make shell-prod          : VPS terminaline SSH oturumu açar"
+	@echo "  make nginx-sync          : VPS Nginx yapılandırmasını senkronize eder"
+	@echo "  make gen-ssh n=name      : Belirtilen isimle SSH anahtarı üretir ve panoya kopyalar"
 
 # =============================================================================
-# 4. YEREL GELİŞTİRME (Native Go / Air)
+# 4. YEREL GELİŞTİRME (Native macOS / Air)
 # =============================================================================
 dev:
-	@echo "Air başlatılıyor..."
+	@echo "Air ile yerel geliştirme ortamı başlatılıyor..."
 	air --build.cmd "go build -o $(DIR_TMP) $(DIR_CMD)" --build.entrypoint "$(DIR_TMP)"
 
 build:
@@ -100,145 +110,141 @@ test:
 
 clean:
 	@rm -rf ./bin ./tmp
-	@echo "Geçici dosyalar temizlendi."
+	@echo "Geçici dosyalar ve derleme çıktıları temizlendi."
 
 # =============================================================================
-# 5. ALTYAPI SERVİSLERİ (POSTGRES & NGINX)
+# 5. VERİTABANI YÖNETİMİ (Docker Profile: db)
 # =============================================================================
-# Gateway ağını kontrol eder, yoksa oluşturup altyapıyı kaldırır
-infra-up:
-	@docker network inspect gateway >/dev/null 2>&1 || docker network create gateway
-	$(INFRA_COMPOSE) up -d
-
-infra-down:
-	$(INFRA_COMPOSE) down
-
-# Air ile geliştirme yaparken sadece veritabanını ayağa kaldırır
 db-up:
-	@docker network inspect gateway >/dev/null 2>&1 || docker network create gateway
-	$(INFRA_COMPOSE) up -d postgres
+	docker compose up -d postgres
 
 db-down:
-	$(INFRA_COMPOSE) stop postgres
+	docker compose stop postgres
 
-nginx-reload:
-	docker exec central_nginx nginx -s reload
-
-# =============================================================================
-# 6. UYGULAMA (API) SERVİSİ
-# =============================================================================
-up:
-	@docker network inspect gateway >/dev/null 2>&1 || docker network create gateway
-	$(APP_COMPOSE) pull
-	$(APP_COMPOSE) up -d
-
-down:
-	$(APP_COMPOSE) down
-
-restart: down up
-
-logs:
-	$(APP_COMPOSE) logs -f api
-
-ps:
-	$(APP_COMPOSE) ps
-
-# =============================================================================
-# 7. VERİTABANI YÖNETİMİ & YEDEKLER
-# =============================================================================
 db-shell:
-	docker exec -it central_postgres psql -U $(DB_USER) -d $(DB_NAME)
+	docker compose exec -it postgres psql -U $(DB_USER) -d $(DB_NAME)
 
 db-backup:
 	@mkdir -p $(DIR_BACKUPS)
-	docker exec -T central_postgres pg_dump -U $(DB_USER) $(DB_NAME) > $(DIR_BACKUPS)/db-$(TIMESTAMP)-local.sql
-	@echo "Yerel yedek alındı: $(DIR_BACKUPS)/db-$(TIMESTAMP)-local.sql"
-
-db-backup-prod:
-	@mkdir -p $(DIR_BACKUPS)
-	@echo "Canlı veritabanı yedeği SSH üzerinden çekiliyor..."
-	@ssh $(SSH_HOST_PROD) "docker exec -T central_postgres pg_dump -U \$$PROD_DB_USER \$$PROD_DB_NAME" > $(DIR_BACKUPS)/db-$(TIMESTAMP)-prod.sql
-	@echo "Canlı yedek kaydedildi: $(DIR_BACKUPS)/db-$(TIMESTAMP)-prod.sql"
+	docker compose exec -T postgres pg_dump -U $(DB_USER) $(DB_NAME) > $(DIR_BACKUPS)/backup-local-$(TIMESTAMP).sql
+	@echo "Yedek alındı: $(DIR_BACKUPS)/backup-local-$(TIMESTAMP).sql"
 
 # =============================================================================
-# 8. YEREL MIGRATION (Docker Tabanlı)
+# 6. UYGULAMA SERVİSİ (Docker Compose)
+# =============================================================================
+up:
+	docker compose pull api
+	docker compose up -d api
+
+down:
+	docker compose down
+
+restart:
+	docker compose restart api
+
+logs:
+	docker compose logs -f api
+
+ps:
+	docker compose ps
+
+# =============================================================================
+# 7. YEREL MIGRATION (golang-migrate Docker Konteyneri)
 # =============================================================================
 migrate-create:
-	@if [ -z "$(MIGRATE_NAME)" ]; then echo "Hata: İsim belirtilmedi. Örnek: make migrate-create n=init"; exit 1; fi
+	@if [ -z "$(MIGRATE_NAME)" ]; then echo "Hata: Migration ismi eksik! Örnek: make migrate-create n=init"; exit 1; fi
 	@mkdir -p $(MIGRATIONS_PATH)
 	docker run --rm -u $(shell id -u):$(shell id -g) -v $(MIGRATIONS_PATH):/migrations \
 		$(MIGRATE_IMAGE) create -ext sql -dir /migrations -seq $(MIGRATE_NAME)
 
 migrate-up:
 	docker run --rm -v $(MIGRATIONS_PATH):/migrations --add-host=host.docker.internal:host-gateway \
-		$(MIGRATE_IMAGE) -path=/migrations -database "$(LOCAL_DB_URL)" up
+		$(MIGRATE_IMAGE) -path=/migrations -database "$(LOCAL_MIGRATE_URL)" up
 
 migrate-down:
 	docker run --rm -v $(MIGRATIONS_PATH):/migrations --add-host=host.docker.internal:host-gateway \
-		$(MIGRATE_IMAGE) -path=/migrations -database "$(LOCAL_DB_URL)" down 1
+		$(MIGRATE_IMAGE) -path=/migrations -database "$(LOCAL_MIGRATE_URL)" down 1
 
 migrate-force:
-	@if [ -z "$(v)" ]; then echo "Hata: Versiyon belirtilmedi. Örnek: make migrate-force v=1"; exit 1; fi
+	@if [ -z "$(v)" ]; then echo "Hata: Versiyon eksik! Örnek: make migrate-force v=1"; exit 1; fi
 	docker run --rm -v $(MIGRATIONS_PATH):/migrations --add-host=host.docker.internal:host-gateway \
-		$(MIGRATE_IMAGE) -path=/migrations -database "$(LOCAL_DB_URL)" force $(v)
+		$(MIGRATE_IMAGE) -path=/migrations -database "$(LOCAL_MIGRATE_URL)" force $(v)
 
 migrate-version:
 	docker run --rm -v $(MIGRATIONS_PATH):/migrations --add-host=host.docker.internal:host-gateway \
-		$(MIGRATE_IMAGE) -path=/migrations -database "$(LOCAL_DB_URL)" version
+		$(MIGRATE_IMAGE) -path=/migrations -database "$(LOCAL_MIGRATE_URL)" version
 
 # =============================================================================
-# 9. CANLI (PROD) MIGRATION (SSH Tüneli ile)
+# 8. CANLI ORTAM (PROD) İŞLEMLERİ (SSH & Tünelleme)
 # =============================================================================
+setup-vps:
+	@echo "VPS altyapı kurulumu başlatılıyor ($(SSH_HOST_PROD))..."
+	@ssh $(SSH_HOST_PROD) "bash -s" < scripts/vps-setup.sh
+	@echo "VPS altyapı kurulumu tamamlandı."
+
 db-tunnel:
-	@echo "Canlı DB SSH tüneli $(PROD_TUNNEL_PORT) portunda açılıyor..."
+	@echo "Canlı DB tüneli $(PROD_TUNNEL_PORT) portunda açılıyor... (Kapatmak için Ctrl+C)"
 	@ssh -N $(SSH_TUNNEL_HOST)
 
 migrate-up-prod:
-	@echo "SSH Tüneli açılıyor..."
+	@echo "SSH Tüneli başlatılıyor..."
 	@ssh -f -N $(SSH_TUNNEL_HOST)
 	@sleep 2
-	@echo "Canlı DB migration uygulanıyor..."
+	@echo "Canlı veritabanına migration uygulanıyor..."
 	@docker run --rm -v $(MIGRATIONS_PATH):/migrations --add-host=host.docker.internal:host-gateway \
-		$(MIGRATE_IMAGE) -path=/migrations -database "$(PROD_DB_URL)" up || true
-	@echo "SSH Tüneli kapatılıyor..."
+		$(MIGRATE_IMAGE) -path=/migrations -database "$(PROD_MIGRATE_URL)" up || true
+	@echo "SSH Tüneli sonlandırılıyor..."
 	@pkill -f "ssh -f -N $(SSH_TUNNEL_HOST)" || true
 
 migrate-down-prod:
-	@echo "SSH Tüneli açılıyor..."
+	@echo "SSH Tüneli başlatılıyor..."
 	@ssh -f -N $(SSH_TUNNEL_HOST)
 	@sleep 2
-	@echo "Canlı DB migration geri alınıyor..."
+	@echo "Canlı veritabanında son migration geri alınıyor..."
 	@docker run --rm -v $(MIGRATIONS_PATH):/migrations --add-host=host.docker.internal:host-gateway \
-		$(MIGRATE_IMAGE) -path=/migrations -database "$(PROD_DB_URL)" down 1 || true
-	@echo "SSH Tüneli kapatılıyor..."
+		$(MIGRATE_IMAGE) -path=/migrations -database "$(PROD_MIGRATE_URL)" down 1 || true
+	@echo "SSH Tüneli sonlandırılıyor..."
 	@pkill -f "ssh -f -N $(SSH_TUNNEL_HOST)" || true
 
-# =============================================================================
-# 10. CANLI VPS İZLEME VE BAĞLANTI (Yerel Terminalden)
-# =============================================================================
+db-backup-prod:
+	@mkdir -p $(DIR_BACKUPS)
+	@echo "Canlı veritabanı yedeği alınıyor..."
+	@ssh $(SSH_HOST_PROD) "docker compose -f $(REMOTE_PROJECT_DIR)/docker-compose.yml exec -T postgres pg_dump -U \$$DB_USER \$$DB_NAME" > $(DIR_BACKUPS)/backup-prod-$(TIMESTAMP).sql
+	@echo "Canlı yedek kaydedildi: $(DIR_BACKUPS)/backup-prod-$(TIMESTAMP).sql"
+
+deploy-prod:
+	ssh -t $(SSH_HOST_PROD) "cd $(REMOTE_PROJECT_DIR) && git pull origin main && docker compose pull api && docker compose up -d api && docker image prune -f"
+
 log-prod:
 	ssh -t $(SSH_HOST_PROD) "cd $(REMOTE_PROJECT_DIR) && docker compose logs -f api"
 
 shell-prod:
 	ssh -t $(SSH_HOST_PROD) "cd $(REMOTE_PROJECT_DIR) && exec bash -l"
 
-db-shell-prod:
-	ssh -t $(SSH_HOST_PROD) "docker exec -it central_postgres psql -U \$$PROD_DB_USER -d \$$PROD_DB_NAME"
-
-# =============================================================================
-# 11. CI/CD & DAĞITIM (VPS Üzerinde Koşar)
-# =============================================================================
-update:
-	@echo "1. Git repodan güncellemeler alınıyor..."
-	git pull origin main
-	@echo "2. Yeni imaj çekiliyor..."
-	$(APP_COMPOSE) pull api
-	@echo "3. API güncelleniyor (Postgres ve Nginx kesintiye uğramaz)..."
-	$(APP_COMPOSE) up -d --remove-orphans api
-	@echo "4. Eski imaj artıkları siliniyor..."
-	docker image prune -f
-	@echo ">> Dağıtım başarıyla tamamlandı!"
-
 nginx-sync:
-	chmod +x scripts/nginx-sync.sh
-	./scripts/nginx-sync.sh
+	ssh -t $(SSH_HOST_PROD) "cd $(REMOTE_PROJECT_DIR) && chmod +x scripts/nginx-sync.sh && ./scripts/nginx-sync.sh"
+
+gen-ssh:
+	@if [ -z "$(SSH_KEY_NAME)" ]; then \
+		echo "Uyarı: SSH anahtar ismi eksik! Örnek: make gen-ssh n=hetzner_vps"; \
+		exit 1; \
+	elif ! printf '%s' "$(SSH_KEY_NAME)" | grep -Eq '^[a-zA-Z0-9._-]+$$'; then \
+		echo "Uyarı: SSH anahtar ismi yalnızca harf, rakam, nokta, alt çizgi ve tire içerebilir."; \
+		exit 1; \
+	elif [ -f "$(SSH_KEY_PATH)" ]; then \
+		echo "Anahtar zaten mevcut: $(SSH_KEY_PATH)"; \
+	else \
+		mkdir -p "$(HOME)/.ssh"; \
+		ssh-keygen -t ed25519 -C "$(SSH_KEY_NAME)" -f "$(SSH_KEY_PATH)" -N ""; \
+		echo "Yeni anahtar üretildi: $(SSH_KEY_PATH)"; \
+	fi; \
+	pbcopy < "$(SSH_KEY_PATH).pub"; \
+	echo ">> Public key doğrudan panoya (clipboard) kopyalandı! Hetzner paneline yapıştırabilirsiniz (CMD+V)."; \
+	echo ""; \
+	echo "Sunucuyu açtıktan sonra ~/.ssh/config dosyanıza şunu ekleyin:"; \
+	echo "--------------------------------------------------"; \
+	echo "Host vps-root"; \
+	echo "    HostName <vps-ip-address-v4>"; \
+	echo "    User root"; \
+	echo "    IdentityFile $(SSH_KEY_PATH)"; \
+	echo "--------------------------------------------------"
